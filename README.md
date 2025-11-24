@@ -6,6 +6,8 @@ A tool that automatically migrates legacy GORM v1 code (`github.com/jinzhu/gorm`
 
 ## Quick start
 
+> 运行和编译本工具需要 Go **1.24.3** 工具链；go.mod 已锁定该版本以确保兼容性。
+
 ```bash
 # Run the migrator against your codebase (defaults to current directory)
 go run ./cmd/gormv1to2 --path /path/to/your/project
@@ -26,7 +28,8 @@ go run ./cmd/gormv1to2 --path /path/to/your/project
 
 ```mermaid
 flowchart TD
-    CLI["cmd/gormv1to2 (CLI)"] --> Transformer["internal/transform.Transformer"]
+    GoTool["Go 1.24.3 toolchain"] --> CLI["cmd/gormv1to2 (CLI)"]
+    CLI --> Transformer["internal/transform.Transformer"]
     Transformer --> Walker["filesystem walker"]
     Walker --> Parser["go/parser AST loader"]
     Parser --> Rewriter["AST rewrites (Open, LogMode, imports)"]
@@ -42,7 +45,7 @@ sequenceDiagram
     participant FS as Filesystem
     participant AST as AST Rewriter
 
-    U->>CLI: run gormv1to2 --path ./project
+    U->>CLI: use Go 1.24.3 to run gormv1to2 --path ./project
     CLI->>FS: enumerate *.go files (skip vendor)
     CLI->>AST: parse file into AST
     AST-->>AST: rewrite imports, gorm.Open, LogMode
@@ -60,13 +63,19 @@ flowchart LR
     transformFile --> rewriteLog[rewriteLogMode]
     transformFile --> pruneLog[removeLogModeStatements]
     transformFile --> ensureImports
+    ensureImports --> versionLock[go.mod go 1.24.3 requirement]
 ```
 
 ## User-visible use cases
 
-- As a maintainer, I can point the CLI at a repository to rewrite GORM v1 usage to GORM v2 idioms without changing business logic.
+- As a maintainer, I can point the CLI at a repository to rewrite GORM v1 usage to GORM v2 idioms without changing business logic while adhering to Go 1.24.3.
 - 作为开发者，可以在 `gorm.Open` 使用 MySQL、Postgres、SQLite 或 SQL Server 方言时自动插入对应驱动 import。
 - 作为工程师，可以自动移除 `LogMode` 调用并使用 GORM v2 默认日志行为。
+
+## Go 版本说明
+
+- go.mod 已升级至 `go 1.24.3`，确保编译、gofmt 与工具链行为与当前迁移器一致。
+- 如需在更低版本编译，请先升级本地 Go 版本或调整 go.mod，但需要重新验证迁移行为。
 
 ## Migration rules implemented
 
