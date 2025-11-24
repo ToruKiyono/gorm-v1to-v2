@@ -13,6 +13,21 @@ A tool that automatically migrates legacy GORM v1 code (`github.com/jinzhu/gorm`
 go run ./cmd/gormv1to2 --path /path/to/your/project
 ```
 
+### 示例项目：Legacy Shop（迁移练手）
+
+仓库内新增了一个较为复杂的 GORM v1 示例项目，涵盖交易、预加载、多对多关系、Hook 校验与库存扣减等场景，便于直接体验迁移效果：
+
+```bash
+# 1) 进入示例项目（仍为 GORM v1 代码）
+cd examples/legacy_shop
+
+# 2) 运行迁移工具，将代码从 v1 转为 v2（会就地改写）
+go run ../../cmd/gormv1to2 --path .
+
+# 3) 查看迁移后的代码，验证业务逻辑保持一致
+git diff
+```
+
 ## 业务功能记录（迁移前后保持一致）
 
 | 功能/行为 | 迁移前 | 迁移后 |
@@ -34,6 +49,14 @@ flowchart TD
     Walker --> Parser["go/parser AST loader"]
     Parser --> Rewriter["AST rewrites (Open, LogMode, imports)"]
     Rewriter --> Formatter["gofmt + write"]
+
+    subgraph Sample["examples/legacy_shop (GORM v1 demo)"]
+        SampleMain["main.go (legacy app entrypoint)"]
+        SampleSvc["service/checkout.go"]
+        SampleModel["models/* (hooks, relations)"]
+    end
+
+    SampleMain -. run migrator .-> CLI
 ```
 
 ## Data flow
@@ -41,16 +64,18 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant U as User
+    participant Demo as examples/legacy_shop
     participant CLI as CLI
     participant FS as Filesystem
     participant AST as AST Rewriter
 
-    U->>CLI: use Go 1.24.3 to run gormv1to2 --path ./project
+    U->>Demo: review legacy GORM v1 code (hooks, relations, Preload)
+    U->>CLI: run gormv1to2 --path ./examples/legacy_shop
     CLI->>FS: enumerate *.go files (skip vendor)
     CLI->>AST: parse file into AST
     AST-->>AST: rewrite imports, gorm.Open, LogMode
     AST->>FS: format and persist updated Go file
-    CLI-->>U: exit status
+    CLI-->>U: exit status + diff for verification
 ```
 
 ## Call graph (core path)
@@ -64,6 +89,13 @@ flowchart LR
     transformFile --> pruneLog[removeLogModeStatements]
     transformFile --> ensureImports
     ensureImports --> versionLock[go.mod go 1.24.3 requirement]
+
+    subgraph LegacyShop[examples/legacy_shop]
+        entry[main.go]
+        checkout[service/checkout.go]
+        models[models/*.go]
+    end
+    versionLock -. used to migrate -> entry
 ```
 
 ## User-visible use cases
@@ -71,6 +103,7 @@ flowchart LR
 - As a maintainer, I can point the CLI at a repository to rewrite GORM v1 usage to GORM v2 idioms without changing business logic while adhering to Go 1.24.3.
 - 作为开发者，可以在 `gorm.Open` 使用 MySQL、Postgres、SQLite 或 SQL Server 方言时自动插入对应驱动 import。
 - 作为工程师，可以自动移除 `LogMode` 调用并使用 GORM v2 默认日志行为。
+- 作为体验者，可以直接在 `examples/legacy_shop` 运行迁移工具，验证事务、预加载、多对多与 Hook 等场景在迁移前后保持一致。
 
 ## Go 版本说明
 
